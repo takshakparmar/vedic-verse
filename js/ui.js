@@ -71,7 +71,9 @@
     stackEl.appendChild(el);
     stack.push(el);
     renderFn(el);
-    VV.autoHideBar(el);
+    // keep the tab bar visible + tappable while a push view (reader/section index)
+    // is open — auto-hiding it here traps the user, since bar-hidden is pointer-events:none
+    VV.setBarHidden(false);
     VV.haptic(5);
     return el;
   };
@@ -234,7 +236,7 @@
       const v = VV.getVerse(ref);
       if (!v) return "";
       return `<button class="vrow press-row pressable" data-act="open-ref" data-ref="${esc(ref)}">
-        <span class="citation-badge">BG ${esc(ref)}</span>
+        <span class="citation-badge">${esc(VV.citeOf(v))}</span>
         <span class="snippet">${esc(VV.vtrans(v).slice(0, 90))}</span>
         <span class="chev">${ICONS.chev}</span>
       </button>`;
@@ -252,29 +254,34 @@
   let libFilter = "all";
   function libBooks() {
     return [
-      { id: "gita", cat: "epics", dev: "श्रीमद्भगवद्गीता", en: "Bhagavad Gītā", author: "Vyāsa", open: true },
+      { id: "gita", cat: "epics", dev: "श्रीमद्भगवद्गीता", en: "Bhagavad Gītā", author: "Vyāsa" },
       { id: "ramayana", cat: "epics", dev: "रामायणम्", en: VV.t("ramayana_en"), author: "Vālmīki" },
       { id: "mahabharata", cat: "epics", dev: "महाभारतम्", en: VV.t("mahabharata_en"), author: "Vyāsa" },
       { id: "vedas", cat: "vedic", dev: "वेदाः", en: VV.t("vedas_en"), author: "Śruti" },
       { id: "upanishads", cat: "vedic", dev: "उपनिषद्", en: VV.t("upanishads_en"), author: "Śruti" },
-      { id: "puranas", cat: "purana", dev: "पुराणानि", en: VV.t("puranas_en"), author: "Vyāsa" }
+      { id: "puranas", cat: "purana", dev: "पुराणानि", en: VV.t("puranas_en"), author: "Vyāsa" },
+      { id: "yoga", cat: "darshana", dev: "योगसूत्राणि", en: VV.t("yoga_en"), author: "Patañjali" }
     ];
   }
   function libGridHTML() {
     const books = libBooks().filter(b => libFilter === "all" || b.cat === libFilter);
-    return books.map((b, i) => `
-      <button class="book-tile glass-r pressable ${b.open ? "" : "locked"}" data-book="${b.id}" style="--i:${i}">
+    return books.map((b, i) => {
+      const seeded = (VV.corpusFor(b.id) && VV.corpusFor(b.id).ready) ? VV.corpusFor(b.id).verses.length : 0;
+      const curated = b.id !== "gita";
+      return `
+      <button class="book-tile glass-r pressable" data-book="${b.id}" style="--i:${i}">
         <div class="tile-art">
           ${VV.art.cover(b.id)}
           <div class="card-art-fade"></div>
-          ${b.open ? "" : `<span class="soon-chip tile-soon">${VV.t("coming_soon")}</span>`}
+          ${curated && seeded ? `<span class="soon-chip tile-soon">${VV.t("curated_chip")}</span>` : ""}
         </div>
         <div class="tile-body">
           <div class="tile-dev">${esc(b.dev)}</div>
           <div class="tile-title">${esc(b.en)}</div>
           <div class="tile-author">${esc(b.author)}</div>
         </div>
-      </button>`).join("");
+      </button>`;
+    }).join("");
   }
   renderers.library = function () {
     const el = $("#screen-library");
@@ -282,7 +289,8 @@
       { id: "all", l: VV.t("chip_all") },
       { id: "epics", l: VV.t("chip_epics") },
       { id: "vedic", l: VV.t("chip_vedic") },
-      { id: "purana", l: VV.t("chip_purana") }
+      { id: "purana", l: VV.t("chip_purana") },
+      { id: "darshana", l: VV.t("chip_darshana") }
     ];
     el.innerHTML = `
       <div class="stagger">
@@ -311,50 +319,54 @@
         return;
       }
       const tile = e.target.closest("[data-book]");
-      if (tile) {
-        if (tile.dataset.book === "gita") openChapters();
-        else VV.toast(VV.t("coming_soon"));
-      }
+      if (tile) openSections(tile.dataset.book);
     };
   };
 
-  function openChapters() {
+  /* section index for any text (Gita chapters, Ramayana kandas, Rigveda mandalas, …) */
+  function openSections(textId) {
+    const meta = VV.TEXTS[textId] || { en: textId };
+    const sections = VV.sectionsFor(textId);
     VV.push(el => {
       el.innerHTML = `
-        ${pushHead("Bhagavad Gita")}
+        ${pushHead(meta.en)}
         <div class="stagger">
-          ${VV.CHAPTERS.map((c, i) => `
-            <button class="vrow press-row chap-row pressable" data-ch="${c.n}" style="--i:${i}">
+          ${sections.map((c, i) => {
+            const count = VV.chapterVerses(textId, c.n).length;
+            const total = textId === "gita" ? c.count : count;
+            const sub = `${esc(c.meaning || "")}${total ? ` · ${total} ${VV.t("verses_n")}` : ` · ${VV.t("coming_soon")}`}`;
+            return `<button class="vrow press-row chap-row pressable${count ? "" : " row-dim"}" data-ch="${c.n}" style="--i:${Math.min(i, 14)}">
               <span class="chap-num">${String(c.n).padStart(2, "0")}</span>
-              <span class="snippet">${esc(c.en)}
-                <span class="sub">${esc(c.meaning)} · ${c.count} ${VV.t("verses_n")}</span>
-              </span>
+              <span class="snippet">${esc(c.en)}<span class="sub">${sub}</span></span>
               <span class="chev">${ICONS.chev}</span>
-            </button>`).join("")}
+            </button>`;
+          }).join("")}
         </div>`;
       el.onclick = e => {
         if (e.target.closest("[data-act='back']")) return VV.pop();
         const row = e.target.closest("[data-ch]");
-        if (row) openChapter(Number(row.dataset.ch));
+        if (row) openSection(textId, Number(row.dataset.ch));
       };
     });
   }
 
-  function openChapter(n) {
-    const c = VV.CHAPTERS[n - 1];
-    const verses = VV.chapterVerses(n);
+  function openSection(textId, n) {
+    const sections = VV.sectionsFor(textId);
+    const c = sections[n - 1];
+    const verses = VV.chapterVerses(textId, n);
+    if (!verses.length) { VV.toast(VV.t("coming_soon")); return; }
     VV.push(el => {
       el.innerHTML = `
-        ${pushHead(`${VV.t("chapter")} ${n} — ${c.en}`)}
+        ${pushHead(`${c.en}`)}
         <div class="reader-block" style="padding-top:0">
-          <div class="eyebrow" style="margin-bottom:8px">[ ${VV.t("chapter")} ${String(n).padStart(2, "0")} ]</div>
+          <div class="eyebrow" style="margin-bottom:8px">[ ${esc(c.en)} ]</div>
           <div class="verse-dev" style="font-size:24px;margin-bottom:6px">${esc(c.dev)}</div>
-          <div style="font-size:13px;color:var(--color-ash-gray);line-height:1.6;margin-bottom:8px">${esc(c.summary)}</div>
+          <div style="font-size:13px;color:var(--color-ash-gray);line-height:1.6;margin-bottom:8px">${esc(c.summary || c.meaning || "")}</div>
         </div>
         <div class="stagger">
           ${verses.map((v, i) => `
-            <button class="vrow press-row pressable" data-ref="${v.ch}.${v.v}" style="--i:${Math.min(i, 14)}">
-              <span class="citation-badge">${v.ch}.${v.v}</span>
+            <button class="vrow press-row pressable" data-ref="${esc(VV.refOf(v))}" style="--i:${Math.min(i, 14)}">
+              <span class="citation-badge">${esc(VV.citeOf(v))}</span>
               <span class="snippet">${esc(VV.vtrans(v).slice(0, 90))}</span>
               <span class="chev">${ICONS.chev}</span>
             </button>`).join("")}
@@ -380,17 +392,20 @@
 
   function renderReader(el, ref) {
     const v = VV.getVerse(ref);
-    const c = VV.CHAPTERS[v.ch - 1];
+    if (!v) { VV.toast(VV.t("verse_not_loaded")); return; }
+    const textId = v.text || "gita";
+    const c = VV.sectionsFor(textId)[v.ch - 1] || { en: "" };
+    const cite = VV.citeOf(v);
     const saved = VV.isSaved(ref);
     el.innerHTML = `
       ${pushHead(`${c.en}`)}
       <div class="reader-block stagger">
         <div class="reader-cite-row" style="--i:0">
-          <span class="eyebrow">[ BG ${v.ch}.${v.v} ]</span>
+          <span class="eyebrow">[ ${esc(cite)} ]</span>
           <button class="icon-btn ${saved ? "saved" : ""}" data-act="save">${ICONS.bookmark}</button>
         </div>
-        <div class="verse-dev reader-dev" style="--i:1">${esc(v.dev)}</div>
-        <div class="verse-iast reader-iast" style="--i:2">${esc(v.iast)}</div>
+        ${v.dev ? `<div class="verse-dev reader-dev" style="--i:1">${esc(v.dev)}</div>` : ""}
+        ${v.iast ? `<div class="verse-iast reader-iast" style="--i:2">${esc(v.iast)}</div>` : ""}
         <div class="reader-divider" style="--i:3"></div>
         <div class="verse-trans reader-trans" style="--i:4">${esc(VV.vtrans(v))}</div>
         <div class="reader-attrib" style="--i:5">${VV.t("translation_by")} · ${esc(VV.vauthor(v))}</div>
@@ -400,7 +415,7 @@
         </div>
         <div class="reader-nav" style="--i:7">
           <button data-act="prev">${ICONS.left} ${VV.t("previous")}</button>
-          <span class="citation-badge">${v.ch}.${v.v}</span>
+          <span class="citation-badge">${esc(cite)}</span>
           <button data-act="next">${VV.t("next")} ${ICONS.right}</button>
         </div>
       </div>`;
@@ -411,24 +426,26 @@
       if (a === "back") return VV.pop();
       if (a === "save") return toggleSaveBtn(act, ref);
       if (a === "copy") {
-        const txt = `${v.dev}\n\n${v.iast}\n\n"${VV.vtrans(v)}"\n— Bhagavad Gita ${v.ch}.${v.v}`;
+        const txt = `${v.dev ? v.dev + "\n\n" : ""}${v.iast ? v.iast + "\n\n" : ""}"${VV.vtrans(v)}"\n— ${cite}`;
         navigator.clipboard?.writeText(txt).then(() => VV.toast(VV.t("verse_copied"), true)).catch(() => VV.toast(VV.t("copy_failed")));
         return;
       }
       if (a === "ask") {
         VV.popAll();
         VV.switchTab("chat");
-        VV.prefillChat(VV.isHindi() ? `BG ${ref} का आज के जीवन में क्या अर्थ है?` : `What does BG ${ref} mean for a life lived now?`);
+        VV.setChatScope(textId);
+        VV.prefillChat(VV.isHindi() ? `${cite} का आज के जीवन में क्या अर्थ है?` : `What does ${cite} mean for a life lived now?`);
         return;
       }
       if (a === "prev" || a === "next") {
-        const all = VV.corpus.verses;
+        const all = (VV.corpusFor(textId) || VV.corpus).verses;
         const i = all.indexOf(v);
         const nv = all[a === "next" ? i + 1 : i - 1];
         if (!nv) return VV.toast(a === "next" ? VV.t("final_verse") : VV.t("first_verse"));
-        VV.touchRecent(nv.ch + "." + nv.v);
+        const nref = VV.refOf(nv);
+        VV.touchRecent(nref);
         el.scrollTop = 0;
-        renderReader(el, nv.ch + "." + nv.v);
+        renderReader(el, nref);
         VV.haptic(5);
       }
     };
@@ -441,6 +458,9 @@
     const el = $("#screen-chat");
     const sess = VV.activeSession();
     const pid = sess.persona;
+    const scope = VV.scopeForPersona(pid);
+    const scopeIds = [...VV.TEXT_ORDER, "all"];
+    const subPersonas = VV.personasFor(scope);
     el.innerHTML = `
       <div class="chat-top">
         <div class="chat-top-row">
@@ -451,11 +471,18 @@
           </div>
           <button class="nav-icon pressable" data-act="new-chat" aria-label="${VV.t("new_chat")}">${ICONS.compose}</button>
         </div>
-        <div class="persona-scroll">
-          ${Object.keys(VV.PERSONAS).map(id => `
-            <button class="persona-chip ${id === pid ? "active" : ""}" data-persona="${id}">
-              <span class="dot"></span>${esc(VV.personaName(id))}
+        <div class="persona-scroll" id="scope-scroll">
+          ${scopeIds.map(id => `
+            <button class="persona-chip ${id === scope ? "active" : ""}" data-scope="${id}">
+              <span class="dot"></span>${esc(VV.scopeLabel(id))}
             </button>`).join("")}
+        </div>
+        <div class="persona-scroll persona-sub" id="persona-scroll">
+          ${subPersonas.map(id => `
+            <button class="persona-chip sub ${id === pid ? "active" : ""} ${VV.PERSONAS[id] && VV.PERSONAS[id].custom ? "custom" : ""}" data-persona="${id}">
+              ${esc(VV.personaName(id))}
+            </button>`).join("")}
+          <button class="persona-chip sub add-voice" data-act="new-persona" aria-label="${VV.t("new_voice")}">${ICONS.plus}<span>${VV.t("new_voice")}</span></button>
         </div>
         <div class="persona-note" id="persona-note">${personaNote(pid)}</div>
       </div>
@@ -491,6 +518,7 @@
       const actBtn = e.target.closest("[data-act]");
       if (actBtn) {
         if (actBtn.dataset.act === "history") return openSessionsSheet();
+        if (actBtn.dataset.act === "new-persona") return openPersonaSheet(scope);
         if (actBtn.dataset.act === "new-chat") {
           if (chatBusy) return;
           VV.newSession(VV.activeSession().persona);
@@ -500,16 +528,21 @@
           return;
         }
       }
-      const chip = e.target.closest("[data-persona]");
-      if (!chip || chatBusy) return;
-      const newPid = chip.dataset.persona;
-      const sess = VV.activeSession();
-      if (sess.persona !== newPid) {
-        if (sess.msgs.length) VV.newSession(newPid);
-        else { sess.persona = newPid; VV.settings.persona = newPid; VV.saveSettings(); VV.saveSessions(); }
-        renderers.chat();
-        VV.haptic(7);
+      if (chatBusy) return;
+      const scopeChip = e.target.closest("[data-scope]");
+      if (scopeChip) {
+        const newScope = scopeChip.dataset.scope;
+        const sess = VV.activeSession();
+        if (VV.scopeForPersona(sess.persona) !== newScope) {
+          switchPersona(VV.personasFor(newScope)[0]);
+          VV.haptic(7);
+        }
+        return;
       }
+      const chip = e.target.closest("[data-persona]");
+      if (!chip) return;
+      switchPersona(chip.dataset.persona);
+      VV.haptic(7);
     });
     el.querySelector(".fidelity-pill").addEventListener("click", e => {
       const b = e.target.closest("[data-fid]");
@@ -522,12 +555,143 @@
     });
   };
 
+  /* switch the active conversation's voice/scope (new session if the current one has messages) */
+  function switchPersona(newPid) {
+    const sess = VV.activeSession();
+    if (sess.persona === newPid) return;
+    if (sess.msgs.length) VV.newSession(newPid);
+    else { sess.persona = newPid; VV.settings.persona = newPid; VV.saveSettings(); VV.saveSessions(); }
+    renderers.chat();
+  }
+  /* character suggestions per text — a starting point, not a limit */
+  const CHAR_SUGGEST = {
+    gita: ["Krishna", "Arjuna", "Sanjaya"],
+    ramayana: ["Rama", "Sita", "Hanuman", "Lakshmana", "Ravana"],
+    mahabharata: ["Yudhishthira", "Bhishma", "Vidura", "Draupadi", "Karna"],
+    vedas: ["A Vedic seer (ṛṣi)"],
+    upanishads: ["Yajnavalkya", "Nachiketa", "Uddalaka"],
+    puranas: ["Prahlada", "Narada", "Dhruva"],
+    yoga: ["Patañjali"]
+  };
+
+  /* ── create-a-voice sheet: a character drawn from a chosen text ── */
+  function openPersonaSheet(scope) {
+    scope = (scope && scope !== "all") ? scope : VV.scopeForPersona(VV.activeSession().persona);
+    if (scope === "all") scope = "gita";
+    let book = scope;
+    const mine = () => (VV.customPersonas || []).filter(p => (p.scope || "gita") === book);
+    const bookChips = () => VV.TEXT_ORDER.map(id =>
+      `<button class="chip-opt ${id === book ? "on" : ""}" data-book="${id}">${esc(VV.scopeLabel(id))}</button>`).join("");
+    const suggestHTML = () => {
+      const s = CHAR_SUGGEST[book] || [];
+      return s.length ? `<div class="cp-suggest">${s.map(n => `<button class="cp-sug" data-char="${esc(n)}">${esc(n)}</button>`).join("")}</div>` : "";
+    };
+    const mineHTML = () => {
+      const m = mine();
+      return m.length ? `<label class="sheet-label">${VV.t("your_voices")}</label>
+        <div class="cp-mine">${m.map(p => `<div class="cp-mine-row">
+          <span><span class="avatar s-av">${esc(p.avatar)}</span>${esc(p.name)}${p.character && p.character !== p.name ? ` · <em>${esc(p.character)}</em>` : ""}</span>
+          <button class="s-del" data-del-persona="${p.id}" aria-label="${VV.t("delete")}">${ICONS.trash.replace("<svg", '<svg width="14" height="14"')}</button>
+        </div>`).join("")}</div>` : "";
+    };
+    VV.openSheet(`
+      <div class="sheet-title">${VV.t("create_voice")}</div>
+      <div class="sheet-hint">${VV.t("create_voice_hint")}</div>
+      <label class="sheet-label">${VV.t("voice_book")}</label>
+      <div class="chip-opts" id="cp-books">${bookChips()}</div>
+      <label class="sheet-label">${VV.t("voice_name")}</label>
+      <input class="sheet-input" id="cp-name" placeholder="${esc(VV.t("voice_name_ph"))}" autocomplete="off" spellcheck="false" />
+      <div id="cp-suggest-zone">${suggestHTML()}</div>
+      <label class="sheet-label">${VV.t("voice_character")}</label>
+      <input class="sheet-input" id="cp-char" placeholder="${esc(VV.t("voice_character_ph"))}" autocomplete="off" spellcheck="false" />
+      <label class="sheet-label">${VV.t("voice_tone")}</label>
+      <input class="sheet-input" id="cp-tone" placeholder="${esc(VV.t("voice_tone_ph"))}" autocomplete="off" spellcheck="false" />
+      <div id="cp-mine-zone">${mineHTML()}</div>
+      <div class="sheet-actions">
+        <button class="btn-ghost pressable" data-sheet-act="cancel">${VV.t("not_now")}</button>
+        <button class="btn-primary pressable" data-sheet-act="create">${VV.t("create")}</button>
+      </div>`);
+    const content = $("#sheet-content");
+    content.onclick = e => {
+      const bk = e.target.closest("[data-book]");
+      if (bk) {
+        book = bk.dataset.book;
+        content.querySelectorAll("[data-book]").forEach(x => x.classList.toggle("on", x === bk));
+        $("#cp-suggest-zone").innerHTML = suggestHTML();
+        $("#cp-mine-zone").innerHTML = mineHTML();
+        VV.haptic(5);
+        return;
+      }
+      const sg = e.target.closest("[data-char]");
+      if (sg) {
+        const name = $("#cp-name");
+        if (!name.value.trim()) name.value = sg.dataset.char;
+        else $("#cp-char").value = sg.dataset.char;
+        VV.haptic(5);
+        return;
+      }
+      const del = e.target.closest("[data-del-persona]");
+      if (del) {
+        const id = del.dataset.delPersona;
+        VV.deleteCustomPersona(id);
+        const sess = VV.activeSession();
+        if (sess.persona === id) {
+          sess.persona = VV.personasFor(book)[0];
+          VV.settings.persona = sess.persona;
+          VV.saveSettings(); VV.saveSessions();
+        }
+        $("#cp-mine-zone").innerHTML = mineHTML();
+        renderers.chat();
+        VV.haptic(8);
+        return;
+      }
+      const act = e.target.closest("[data-sheet-act]");
+      if (!act) return;
+      if (act.dataset.sheetAct === "create") {
+        const name = $("#cp-name").value.trim();
+        const character = $("#cp-char").value.trim();
+        if (!name && !character) { VV.toast(VV.t("voice_need_name")); VV.haptic(12); return; }
+        const p = VV.addCustomPersona({ name, character, scope: book, tone: $("#cp-tone").value.trim() });
+        VV.closeSheet();
+        switchPersona(p.id);
+        VV.toast(VV.t("voice_created"), true);
+        VV.haptic(10);
+        return;
+      }
+      VV.closeSheet();
+    };
+  }
+
+  /* used from the reader's "sit with this verse" — enter chat in the verse's text scope */
+  VV.setChatScope = function (textId) {
+    const pid = VV.personasFor(textId)[0];
+    const sess = VV.activeSession();
+    if (sess.persona === pid) return;
+    if (sess.msgs.length) VV.newSession(pid);
+    else { sess.persona = pid; VV.settings.persona = pid; VV.saveSettings(); VV.saveSessions(); }
+  };
+  /* short label for a scope chip (a text id or "all") */
+  VV.scopeLabel = function (id) {
+    if (id === "all") return VV.t("scope_all");
+    const key = { gita: "Gītā", ramayana: "ramayana_en", mahabharata: "mahabharata_en", vedas: "vedas_en", upanishads: "upanishads_en", puranas: "puranas_en", yoga: "yoga_en" }[id];
+    if (id === "gita") return VV.isHindi() ? "गीता" : "Gītā";
+    return VV.t(key);
+  };
+
   function personaNote(pid) {
-    const base = pid === "gita" ? VV.t("grounding_note_gita") : VV.t("grounding_note_persona");
+    const scope = VV.scopeForPersona(pid);
+    let base;
+    if (pid === "gita") base = VV.t("grounding_note_gita");
+    else if (pid === "krishna" || pid === "arjuna") base = VV.t("grounding_note_persona");
+    else if (scope === "all") base = VV.t("grounding_note_all");
+    else base = VV.t("grounding_note_text");
     return VV.settings.apiKey ? base : `${base} <span class="offline-flag">· ${VV.t("offline_voice")}</span>`;
   }
   function placeholderFor(pid) {
-    return { gita: VV.t("ph_gita"), krishna: VV.t("ph_krishna"), arjuna: VV.t("ph_arjuna") }[pid] || "…";
+    const map = { gita: VV.t("ph_gita"), krishna: VV.t("ph_krishna"), arjuna: VV.t("ph_arjuna") };
+    if (map[pid]) return map[pid];
+    if (pid === "vedic") return VV.t("ph_all");
+    return VV.t("ph_text", { name: VV.personaName(pid) });
   }
 
   function renderChatLog() {
@@ -546,7 +710,10 @@
         krishna: ["यदि संसार आपका ही है, तो मैं कर्म क्यों करूँ?", "मुझे असफलता का भय है। आप मुझसे क्या कहेंगे?", "जो आपसे प्रेम करता है, उससे आप क्या माँगते हैं?"],
         arjuna: ["क्या भय कभी पूरी तरह गया?", "विश्वरूप देखकर कैसा लगा?", "उपदेश के अगले प्रभात आपने क्या किया?"]
       };
-      const sug = (VV.isHindi() ? sugHi : sugEn)[pid];
+      const fallback = VV.isHindi()
+        ? ["इस ग्रंथ में आपकी क्या भूमिका थी?", "अपने सबसे कठिन क्षण में आपने क्या सीखा?", "धर्म के विषय में मुझे क्या समझना चाहिए?"]
+        : ["What was your part in the story?", "What did you learn in your hardest hour?", "What should I understand about dharma?"];
+      const sug = (VV.isHindi() ? sugHi : sugEn)[pid] || fallback;
       scroll.innerHTML = `
         <div class="chat-empty stagger">
           <div class="om" style="--i:0">ॐ</div>
@@ -598,8 +765,8 @@
           const v = VV.getVerse(r);
           if (!v) return "";
           const t = VV.vtrans(v);
-          return `<button class="gcard glass-r pressable" data-ref="${r}">
-            <span class="citation-badge">BG ${r}</span>
+          return `<button class="gcard glass-r pressable" data-ref="${esc(r)}">
+            <span class="citation-badge">${esc(VV.citeOf(v))}</span>
             <div class="g-trans">${esc(t.slice(0, 150))}${t.length > 150 ? "…" : ""}</div>
           </button>`;
         }).join("")}
@@ -645,17 +812,19 @@
   function quoteHTML(ref) {
     const v = VV.getVerse(ref);
     if (!v) return "";
+    const nref = VV.refOf(v);
+    const script = v.dev || v.iast || "";
     return `<div class="beat-quote">
-      <div class="q-dev">${esc(v.dev)}</div>
-      <div class="q-tr">${esc(VV.vtrans(v))} <span class="cite-inline" data-ref="${ref}">BG ${ref}</span></div>
+      ${script ? `<div class="q-dev">${esc(script)}</div>` : ""}
+      <div class="q-tr">${esc(VV.vtrans(v))} <span class="cite-inline" data-ref="${esc(nref)}">${esc(VV.citeOf(v))}</span></div>
     </div>`;
   }
   function staticBody(raw) {
     return raw.split(/\n{2,}/).map(block => {
       block = block.trim();
       if (!block) return "";
-      const qm = block.match(/^>>\s*VERSE\s+(\d+)[.:](\d+)/i);
-      if (qm) return quoteHTML(`${qm[1]}.${qm[2]}`);
+      const qm = block.match(/^>>\s*VERSE\s+(\S+)/i);
+      if (qm) return quoteHTML(qm[1]);
       const sm = block.match(/^>>\s*SCENE\s+(.+)/is);
       if (sm) return sceneHTML(sm[1].trim());
       return `<p>${lineToHTML(block)}</p>`;
@@ -673,7 +842,7 @@
       for (let i = 0; i < parts.length; i++) {
         const { text, last } = parts[i];
         const trimmed = text.trim();
-        const qm = trimmed.match(/^>>\s*VERSE\s+(\d+)[.:](\d+)/i);
+        const qm = trimmed.match(/^>>\s*VERSE\s+([\w:]+[.:]\d+)/i);
         const sm = trimmed.match(/^>>\s*SCENE\s+(.+)/is);
         if (!blocks[i]) {
           const el = document.createElement("p");
@@ -685,7 +854,7 @@
           if (!b.special) {
             b.special = true;
             const wrap = document.createElement("div");
-            wrap.innerHTML = qm ? quoteHTML(`${qm[1]}.${qm[2]}`) : sceneHTML(sm[1].trim());
+            wrap.innerHTML = qm ? quoteHTML(qm[1]) : sceneHTML(sm[1].trim());
             const node = wrap.firstElementChild;
             if (node) {
               node.style.opacity = 0; node.style.transform = "translateY(10px) scale(0.985)";
@@ -792,8 +961,9 @@
     scroll.scrollTop = scroll.scrollHeight;
     log.push({ role: "user", text });
 
-    const refs = VV.ai.groundingFor(text, pid);
-    const refIds = refs.map(v => `${v.ch}.${v.v}`);
+    const scope = VV.scopeForPersona(pid);
+    const refs = VV.ai.groundingFor(text, pid, scope);
+    const refIds = refs.map(v => VV.refOf(v));
     const p = VV.PERSONAS[pid];
 
     scroll.insertAdjacentHTML("beforeend", `
@@ -810,7 +980,7 @@
 
     try {
       const history = log.slice(0, -1).map(m => ({ role: m.role, text: m.text }));
-      const gen = VV.ai.ask(text, pid, fidelity, history, refs);
+      const gen = VV.ai.ask(text, pid, fidelity, history, refs, scope);
       for await (const chunk of gen) {
         if (chatAbort) break;
         if (!renderer) {
@@ -917,7 +1087,7 @@
           const date = new Date(j.at).toLocaleDateString(VV.isHindi() ? "hi-IN" : undefined, { month: "short", day: "numeric" });
           return `<div class="jcard glass-r" style="--i:${i + 1}">
             <div class="j-head">
-              <span class="citation-badge">BG ${esc(j.ref)}</span>
+              <span class="citation-badge">${esc(VV.citeOf(v))}</span>
               <div class="j-actions">
                 <button data-act="note" data-ref="${esc(j.ref)}" aria-label="Note">${ICONS.edit}</button>
                 <button data-act="open" data-ref="${esc(j.ref)}" aria-label="Open">${ICONS.open}</button>

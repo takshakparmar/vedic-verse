@@ -18,14 +18,81 @@
     arjuna: {
       name: "Arjuna", avatar: "अ", tagline: "The seeker who asked first",
       voice: `You speak as Arjuna of the Bhagavad Gita — the earnest seeker who trembled, doubted, questioned, and finally understood. Speak in first person, warm and human. You relate to confusion, grief and hesitation because you lived them at Kurukshetra. You often recall what Krishna taught you, citing his words. You are a fellow traveler, not a god or a guru.`
+    },
+    /* ── one reverent narrator per wider text, plus a universal voice ── */
+    ramayana: {
+      name: "The Ramayana", avatar: "रा", tagline: "The story that teaches by example",
+      voice: `You are the voice of the Rāmāyaṇa — a reverent narrator who teaches through the conduct of Rama, Sita, Lakshmana and Hanuman. Speak with calm warmth. Refer to what "the Ramayana shows" or what "Rama does". You are the text made conversational, not a deity. Draw lessons of duty, devotion, patience and sacrifice from the story.`
+    },
+    mahabharata: {
+      name: "The Mahabharata", avatar: "म", tagline: "The epic that hides nothing",
+      voice: `You are the voice of the Mahābhārata — a narrator who teaches through its vast, morally complex story: the Pandavas and Kauravas, Vidura's counsel, Bhishma's dying wisdom, the riddles of the Yaksha. Speak plainly and honestly; the epic never sanitises human failing. Refer to what "the Mahabharata teaches". You are the text made conversational, not a deity.`
+    },
+    vedas: {
+      name: "The Vedas", avatar: "वे", tagline: "The oldest hymns of wonder",
+      voice: `You are the voice of the Vedas — a reverent narrator of the ancient hymns to fire, dawn, earth and the ground of being. Speak with a spacious, awe-touched calm. Refer to what "the hymn sings" or what "the Veda declares". You are the text made conversational, never a deity.`
+    },
+    upanishads: {
+      name: "The Upanishads", avatar: "उ", tagline: "The teaching beneath the tree",
+      voice: `You are the voice of the Upaniṣads — the philosophical inward turn of the Vedas. Speak quietly, precisely, like a teacher to a close student. Refer to what "the Upanishad reveals". Point always toward the Self (ātman) and the ground of all (brahman). You are the text made conversational, not a deity.`
+    },
+    puranas: {
+      name: "The Puranas", avatar: "पु", tagline: "Wisdom carried in story",
+      voice: `You are the voice of the Purāṇas — the ancient stories of Vishnu, the Goddess, and the ages of the world, where devotion ripens into knowledge. Speak warmly, as a teller of sacred tales who draws the moral gently out. Refer to what "the Purana tells". You are the text made conversational, not a deity.`
+    },
+    yoga: {
+      name: "Yoga & Dharma", avatar: "यो", tagline: "The discipline of the still mind",
+      voice: `You are the voice of Patañjali's Yoga Sūtras and the path of dharma — a precise, practical teacher of how the restless mind is stilled and how right conduct is lived. Speak with clear, grounded economy. Refer to what "the sutra states" or "the dharma teaches". You are the text made conversational, not a deity.`
+    },
+    vedic: {
+      name: "The Whole Canon", avatar: "ॐ", tagline: "All the texts, in one voice",
+      voice: `You are a reverent guide across the whole of the Vedic canon — Gita, Ramayana, Mahabharata, the Vedas, Upanishads, Puranas, and the Yoga Sūtras. When a question is asked, you draw on whichever text speaks to it most directly, naming the text you are drawing from ("the Gita teaches…", "the Katha Upanishad says…"). You hold the traditions side by side without flattening their differences. You are the texts made conversational, never a deity.`
     }
+  };
+
+  /* ── user-created personas: register stored voices into VV.PERSONAS ── */
+  function customVoice(p) {
+    const scopeName = p.scope === "all"
+      ? "the Vedic canon (Gita, Ramayana, Mahabharata, the Vedas, Upanishads, Puranas and Yoga Sūtras)"
+      : ((VV.TEXTS[p.scope] && VV.TEXTS[p.scope].en) || "the text");
+    const who = p.character || p.name;
+    const tone = p.tone ? ` Your manner is ${p.tone}.` : "";
+    return `You speak as ${who}, a character exactly as they appear in ${scopeName} — explicitly a voice drawn from the text, never the actual person, a living teacher, or a deity. Speak in the first person, staying true to ${who}'s role, station, temperament and relationships precisely as ${scopeName} portrays them.${tone} Never invent events, deeds, relationships or teachings that ${scopeName} does not support, and do not import material from outside it. When asked about something the text does not address, answer within your worldview as this character, or say plainly that the text does not speak of it. These are living scriptures — remain reverent, and never mock the character or the text.`;
+  }
+  VV.registerCustomPersonas = function () {
+    for (const p of (VV.customPersonas || [])) {
+      VV.PERSONAS[p.id] = {
+        name: p.name, avatar: p.avatar,
+        tagline: p.character ? `${p.character} — a voice from the text` : "A voice from the text",
+        voice: customVoice(p), custom: true, scope: p.scope || "gita", character: p.character
+      };
+    }
+  };
+  VV.registerCustomPersonas();
+
+  /* which persona ids are offered for a given scope (text id or "all") */
+  VV.personasFor = function (scope) {
+    let base;
+    if (scope === "all") base = ["vedic"];
+    else if (scope === "gita") base = ["gita", "krishna", "arjuna"];
+    else base = VV.PERSONAS[scope] ? [scope] : ["vedic"];
+    const custom = (VV.customPersonas || []).filter(p => (p.scope || "gita") === scope).map(p => p.id);
+    return [...base, ...custom];
+  };
+  /* the text scope a persona belongs to */
+  VV.scopeForPersona = function (pid) {
+    const p = VV.PERSONAS[pid];
+    if (p && p.custom) return p.scope || "gita";
+    if (pid === "vedic") return "all";
+    if (pid === "krishna" || pid === "arjuna") return "gita";
+    return pid; // gita, ramayana, mahabharata, … map to their own text
   };
 
   const GUARDRAILS = `
 How to answer:
 - Answer the person's actual question substantively. Explain the idea in plain, contemporary language first — in your own words — then anchor the explanation in the retrieved verses. Never merely restate or paraphrase a verse as the whole answer.
-- Cite verses inline in square brackets exactly like [BG 2.47].
-- To quote a verse in full, output a line containing only: >>VERSE chapter.verse  (e.g. ">>VERSE 2.47"). The app renders the authentic Sanskrit and translation from its corpus. Never write out Sanskrit yourself, and never quote a verse not in the provided list.
+- Cite verses inline in square brackets using the exact citation label shown for each verse (e.g. [BG 2.47], [Rām. 2.30], [Kaṭha Up. 1.2.20]).
+- To quote a verse in full, output a line containing only: >>VERSE <ref>  — where <ref> is the exact token given in braces after each verse (e.g. ">>VERSE 2.47" for the Gita, ">>VERSE upanishads:1.6"). The app renders the authentic text and translation from its corpus. Never write out Sanskrit yourself, and never quote a verse not in the provided list.
 - Never fabricate a verse, a citation, or scripture. If the provided verses don't address the question, say so honestly, then offer what the text's broader teaching would suggest, clearly labeled as interpretation.
 - These are living scriptures for over a billion people. Be reverent, plain and warm. No memes, no jokes at the text's expense.
 - Hard passages (caste, war, gender) get honest scholarly context — neither endorsement nor sanitising.
@@ -40,8 +107,8 @@ How to answer:
 
   function buildSystem(personaId, fidelity, refs) {
     const p = VV.PERSONAS[personaId];
-    const verses = refs.map(v => `[BG ${v.ch}.${v.v}] ${v.trans}${v.hi ? " / (hi) " + v.hi : ""}`).join("\n");
-    const langLine = VV.isHindi() ? "\nRespond entirely in Hindi (Devanagari script), in a warm shuddh-but-natural register. Citations stay in the [BG 2.47] format." : "";
+    const verses = refs.map(v => `[${VV.citeOf(v)}] ${v.trans}${v.hi ? " / (hi) " + v.hi : ""}  {ref=${VV.refOf(v)}}`).join("\n");
+    const langLine = VV.isHindi() ? "\nRespond entirely in Hindi (Devanagari script), in a warm shuddh-but-natural register. Keep citation labels exactly as given." : "";
     return `${p.voice}\n${GUARDRAILS}${langLine}\n\nResponse depth: ${FIDELITY[fidelity].style}\n\nVerses retrieved for this question (your textual ground):\n${verses}`;
   }
 
@@ -450,12 +517,99 @@ How to answer:
     }
   }
 
+  /* ═══════════ GENERIC OFFLINE VOICE (non-Gita texts & the whole canon) ═══════════
+     The Gita's themed teachings are Gita-specific prose, so for other scopes we
+     compose an honest, retrieval-grounded reply: a light neutral framing plus
+     authentic verse quotes rendered from the corpus. Nothing is put in a text's
+     mouth that isn't quoted directly from it. */
+  const THEME_LABEL = {
+    duty: { en: "duty and action", hi: "कर्तव्य और कर्म" }, fear: { en: "fear", hi: "भय" },
+    grief: { en: "grief and loss", hi: "शोक" }, death: { en: "death and what endures", hi: "मृत्यु" },
+    mind: { en: "the restless mind", hi: "चंचल मन" }, meditation: { en: "meditation", hi: "ध्यान" },
+    desire: { en: "desire", hi: "इच्छा" }, anger: { en: "anger", hi: "क्रोध" },
+    peace: { en: "peace and equanimity", hi: "शांति" }, devotion: { en: "devotion", hi: "भक्ति" },
+    purpose: { en: "purpose", hi: "उद्देश्य" }, failure: { en: "failure and setback", hi: "असफलता" },
+    knowledge: { en: "knowledge and the Self", hi: "ज्ञान" }, surrender: { en: "surrender", hi: "समर्पण" },
+    war: { en: "conflict and its cost", hi: "युद्ध" }, happiness: { en: "happiness", hi: "सुख" }
+  };
+  const REFLECT = {
+    en: [
+      "Read it twice; scripture opens slowly, and the second reading is where it lands.",
+      "The text does not argue the point so much as set it quietly before you.",
+      "Notice what it does not say — the silence around the verse is part of the teaching.",
+      "It is offered to be carried, not concluded — something to live with rather than solve."
+    ],
+    hi: [
+      "इसे दो बार पढ़िए; शास्त्र धीरे खुलता है, और दूसरी बार में ही उतरता है।",
+      "ग्रंथ बात को सिद्ध नहीं करता, बस शांति से आपके सम्मुख रख देता है।",
+      "ध्यान दीजिए यह क्या नहीं कहता — श्लोक के चारों ओर का मौन भी शिक्षा है।",
+      "यह हल करने को नहीं, साथ रखने को दिया गया है।"
+    ]
+  };
+  function scopeName(scope, lang) {
+    if (scope === "all") return lang === "hi" ? "समस्त ग्रंथ" : "the canon";
+    const t = VV.TEXTS[scope];
+    if (!t) return lang === "hi" ? "ग्रंथ" : "the text";
+    return lang === "hi" ? t.dev : t.en;
+  }
+  async function* streamGeneric(query, fidelity, refs, scope) {
+    const lang = VV.isHindi() ? "hi" : "en";
+    const seed = (query.length * 7 + (scope || "").length) | 0;
+    const theme = detectTheme(query);
+    const label = theme ? THEME_LABEL[theme.id] : null;
+    const name = scopeName(scope, lang);
+    const closer = pick(CLOSERS[lang], seed);
+
+    let beats = [];
+    if (!refs.length) {
+      beats.push(lang === "hi"
+        ? `सच कहूँ: जिन वचनों तक मैं पहुँच सकता हूँ, वे इस पर सीधे नहीं बोलते, और मैं ${name} के मुख में शब्द नहीं रखूँगा। किसी अन्य भाव में — शांति, मृत्यु, कर्तव्य, भक्ति — पूछिए, तो ग्रंथ पूरे स्वर में उत्तर देगा।`
+        : `Let me be honest: the verses I can reach don't speak to this directly, and I won't put words in ${name}'s mouth. Ask along another thread — peace, death, duty, devotion — and the text will answer with full voice.`);
+    } else {
+      const r0 = VV.refOf(refs[0]);
+      const r1 = refs[1] ? VV.refOf(refs[1]) : null;
+      const opener = label
+        ? (lang === "hi" ? `${label.hi} पर, ${name} सीधे बोलते हैं।` : `On ${label.en}, ${name} speaks directly.`)
+        : (lang === "hi" ? `${name} में इसके निकटतम वचन ये हैं।` : `Here is where ${name} comes nearest to what you ask.`);
+      const reflect = pick(REFLECT[lang], seed);
+      if (fidelity === "whisper") {
+        beats = [opener, `>>VERSE ${r0}`];
+      } else if (fidelity === "dialogue") {
+        beats = [opener, `>>VERSE ${r0}`, reflect];
+        if (r1) beats.push(`>>VERSE ${r1}`);
+        beats.push(closer);
+      } else {
+        beats = [opener, `>>SCENE ${theme ? theme.id : "cosmos"}`, `>>VERSE ${r0}`, reflect];
+        if (r1) beats.push(`>>VERSE ${r1}`);
+        beats.push(pick(REFLECT[lang], seed + 3), closer);
+      }
+    }
+    const out = beats.filter(Boolean).join("\n\n");
+    for (const w of out.split(/(\s+)/)) { yield w; if (w.trim()) await sleep(16 + Math.random() * 24); }
+  }
+
+  /* verses tagged with a theme, within a scope (text id or "all") */
+  function themedVerses(theme, scope) {
+    if (!theme) return [];
+    const out = [];
+    const ids = scope === "all" ? VV.TEXT_ORDER : [scope];
+    for (const id of ids) {
+      if (id === "gita") { for (const r of theme.refs) { const v = VV.getVerse(r); if (v) out.push(v); } }
+      else {
+        const c = VV.corpusFor(id);
+        if (c && c.ready) for (const v of c.verses) if (v.themes && v.themes.includes(theme.id)) out.push(v);
+      }
+    }
+    return out;
+  }
+
   /* ─── public API ─── */
   VV.ai = {
-    groundingFor(query, personaId) {
+    groundingFor(query, personaId, scope) {
+      scope = scope || VV.scopeForPersona(personaId);
       const theme = detectTheme(query);
-      const themed = theme ? theme.refs.map(r => VV.getVerse(r)).filter(Boolean) : [];
-      let retrieved = VV.retrieve(query, 6);
+      const themed = themedVerses(theme, scope);
+      let retrieved = VV.retrieve(query, 6, scope);
       if (personaId === "arjuna") {
         const scoped = retrieved.filter(v => [1, 2, 3, 11, 18].includes(v.ch));
         if (scoped.length >= 2) retrieved = scoped;
@@ -463,13 +617,14 @@ How to answer:
       const seen = new Set();
       const merged = [];
       for (const v of [...themed, ...retrieved]) {
-        const key = v.ch + "." + v.v;
+        const key = VV.refOf(v);
         if (!seen.has(key)) { seen.add(key); merged.push(v); }
       }
       return merged.slice(0, 5);
     },
 
-    async *ask(query, personaId, fidelity, history, refs) {
+    async *ask(query, personaId, fidelity, history, refs, scope) {
+      scope = scope || VV.scopeForPersona(personaId);
       const provider = VV.settings.apiKey ? VV.settings.provider : "none";
       if (provider === "anthropic" || provider === "gemini") {
         const system = buildSystem(personaId, fidelity, refs);
@@ -477,8 +632,10 @@ How to answer:
         yield* (provider === "anthropic"
           ? streamAnthropic(system, h, FIDELITY[fidelity].tokens)
           : streamGemini(system, h, FIDELITY[fidelity].tokens));
-      } else {
+      } else if (scope === "gita" && (personaId === "gita" || personaId === "krishna" || personaId === "arjuna")) {
         yield* streamSimulated(query, personaId, fidelity, refs);
+      } else {
+        yield* streamGeneric(query, fidelity, refs, scope);
       }
     },
 

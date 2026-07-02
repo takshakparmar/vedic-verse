@@ -20,6 +20,17 @@ Double-click **`index.html`** — that's it. No install, no server, no build ste
 
 Keys are stored **only** in this browser's localStorage and are sent only to the provider's own API.
 
+## The wider canon (v3)
+
+The Library is no longer Gita-only. Seven texts are now conversational:
+
+- **Bhagavad Gītā** — the full 700-verse dataset, loaded live (as before).
+- **Rāmāyaṇa**, **Mahābhārata**, **the four Vedas**, **the Upanishads**, **the Purāṇas**, and **Yoga Sūtras & Dharma** — each seeded with a substantial, curated selection of its most canonical verses (authentic references + public-domain translations: Griffith for the Vedas, Müller for the Upanishads, Ganguli for the Mahabharata, and public-domain renderings elsewhere).
+
+Because the Mahabharata alone runs to ~100,000 verses — far beyond what a browser cache can hold — the wider texts are **representative, not complete**. The corpus lives in `js/corpora.js` in one uniform shape (`{ ch, v, dev, iast, trans, cite, book, themes }`), so more passages can be appended to the same structure at any time, and a future build can swap curated selections for full remote datasets exactly the way the Gita already loads.
+
+**Ask across everything.** The Converse tab now has a text-scope selector. Pick a single text to speak with its own reverent voice, or choose **All Texts** to ask a question of the whole canon at once — the answer names the text it draws from and cites the verse. Every scope stays grounded: quotes render only from the corpus (via `>>VERSE` markers resolved against `js/data.js`), so scripture can be pointed at but never invented, in any text.
+
 ## What's in v2
 
 Everything from Phase 1 (Home / Library / Reader / Converse / Journal / Profile), plus:
@@ -56,7 +67,8 @@ Audited sinks and posture (v2):
 index.html        shell
 css/tokens.css    the design system tokens, verbatim from the style reference
 css/app.css       components, screens, motion
-js/data.js        corpus load/cache, retrieval index, daily verse
+js/data.js        text registry, corpus load/cache, namespaced refs, per-text + combined retrieval
+js/corpora.js     bundled curated corpora for the wider canon (Ramayana … Yoga Sūtras)
 js/store.js       settings, streak, journal, recents (localStorage)
 js/motion.js      embers, tilt, sheet physics, toast, haptics
 js/ai.js          personas, grounding, Anthropic/Gemini streaming, offline voice

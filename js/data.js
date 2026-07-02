@@ -42,9 +42,49 @@
   const ENGLISH_AUTHOR_IDS = [16, 19, 18, 20, 21]; // Sivananda first, then other English voices
   const HINDI_AUTHOR_IDS = [1, 2];                 // Ramsukhdas first, then Chinmayananda
   const AUTHOR_NAMES = { 1: "Swami Ramsukhdas", 2: "Swami Chinmayananda", 16: "Swami Sivananda", 18: "Swami Adidevananda", 19: "Swami Gambirananda", 20: "Dr. S. Sankaranarayan", 21: "Shri Purohit Swami" };
-  const CACHE_KEY = "vv.corpus.v2";
+  const CACHE_KEY = "vv.corpus.v3";
 
-  VV.corpus = { ready: false, verses: [], byRef: new Map(), attribution: "Swami Sivananda", attributionHi: "Swami Ramsukhdas" };
+  VV.corpus = { ready: false, verses: [], byRef: new Map(), index: null, attribution: "Swami Sivananda", attributionHi: "Swami Ramsukhdas", textId: "gita" };
+
+  /* ═══ text registry — the Gita loads live; the rest are bundled curated corpora ═══ */
+  VV.TEXTS = {
+    gita:        { id: "gita",        abbr: "BG",   cat: "epics",   source: "remote",  en: "Bhagavad Gītā",  dev: "श्रीमद्भगवद्गीता", author: "Vyāsa",  unit: "Chapter" },
+    ramayana:    { id: "ramayana",    abbr: "Rām",  cat: "epics",   source: "bundled", en: "The Ramayana",   dev: "रामायणम्",        author: "Vālmīki", unit: "Kāṇḍa" },
+    mahabharata: { id: "mahabharata", abbr: "Mbh",  cat: "epics",   source: "bundled", en: "The Mahabharata", dev: "महाभारतम्",       author: "Vyāsa",   unit: "Parva" },
+    vedas:       { id: "vedas",       abbr: "Veda", cat: "vedic",   source: "bundled", en: "The Four Vedas", dev: "वेदाः",           author: "Śruti",   unit: "Veda" },
+    upanishads:  { id: "upanishads",  abbr: "Up",   cat: "vedic",   source: "bundled", en: "The Upanishads", dev: "उपनिषद्",         author: "Śruti",   unit: "Text" },
+    puranas:     { id: "puranas",     abbr: "Pur",  cat: "purana",  source: "bundled", en: "The Puranas",    dev: "पुराणानि",        author: "Vyāsa",   unit: "Purāṇa" },
+    yoga:        { id: "yoga",        abbr: "Yog",  cat: "darshana", source: "bundled", en: "Yoga Sūtras & Dharma", dev: "योगसूत्राणि", author: "Patañjali", unit: "Pāda" }
+  };
+  VV.TEXT_ORDER = ["gita", "ramayana", "mahabharata", "vedas", "upanishads", "puranas", "yoga"];
+
+  /* every text's corpus lives here, keyed by id; gita is the live one */
+  VV.corpora = { gita: VV.corpus };
+
+  const corpusOf = v => (v && VV.corpora[v.text || v.textId || "gita"]) || VV.corpus;
+  VV.corpusFor = id => VV.corpora[id] || null;
+  VV.sectionsFor = id => (id === "gita" ? VV.CHAPTERS : (VV.CORPORA[id] && VV.CORPORA[id].sections) || []);
+  VV.textReady = id => !!(VV.corpora[id] && VV.corpora[id].ready);
+
+  /* namespaced ref helpers — gita stays bare ("2.47") for back-compat; others are "id:ch.v" */
+  VV.refOf = v => (!v.text || v.text === "gita") ? `${v.ch}.${v.v}` : `${v.text}:${v.ch}.${v.v}`;
+  VV.parseRef = function (ref) {
+    if (!ref) return null;
+    let textId = "gita", body = String(ref);
+    const c = body.indexOf(":");
+    if (c > -1) { textId = body.slice(0, c); body = body.slice(c + 1); }
+    const m = body.match(/^(\d+)[.:](\d+)$/);
+    if (!m) return null;
+    return { textId, ch: +m[1], v: +m[2] };
+  };
+  /* citation abbreviation for a ref (used by chat rendering) */
+  VV.abbrFor = id => (VV.TEXTS[id] && VV.TEXTS[id].abbr) || "BG";
+  /* human-facing citation label for a verse: authentic `cite` if present, else abbr ch.v */
+  VV.citeOf = function (v) {
+    if (!v) return "";
+    if (v.cite) return v.cite;
+    return `${VV.abbrFor(v.text || "gita")} ${v.ch}.${v.v}`;
+  };
 
   async function fetchFirst(urls, onStatus) {
     let lastErr;
@@ -125,18 +165,43 @@
     VV.corpus.verses = data.verses;
     VV.corpus.attribution = data.attribution;
     VV.corpus.attributionHi = data.attributionHi || VV.corpus.attributionHi;
+    for (const v of data.verses) v.text = "gita";
     VV.corpus.byRef = new Map(data.verses.map(v => [v.ch + "." + v.v, v]));
+    VV.corpus.index = buildIndex(data.verses);
     VV.corpus.ready = true;
-    buildIndex();
+    buildBundled();
+  }
+
+  /* build the in-memory corpora for the bundled texts (cheap, synchronous) */
+  function buildBundled() {
+    if (!VV.CORPORA) return;
+    for (const id of Object.keys(VV.CORPORA)) {
+      if (VV.corpora[id] && VV.corpora[id].ready) continue;
+      // a malformed entry in one text must never leave the others unbuilt
+      try {
+        const src = VV.CORPORA[id];
+        if (!src || !Array.isArray(src.verses)) continue;
+        const verses = src.verses.map(v => Object.assign({
+          dev: "", iast: "", trans: "", hi: "", hiAuthor: "", author: "public-domain rendering"
+        }, v, { text: id }));
+        const corpus = {
+          ready: true, textId: id, verses,
+          byRef: new Map(verses.map(v => [v.ch + "." + v.v, v])),
+          index: buildIndex(verses),
+          attribution: "public-domain rendering", attributionHi: "public-domain rendering"
+        };
+        VV.corpora[id] = corpus;
+      } catch (e) { console.warn("buildBundled: skipped", id, e); }
+    }
   }
 
   /* language-aware verse translation */
   VV.vtrans = v => (VV.settings && VV.settings.lang === "hi" && v.hi) ? v.hi : v.trans;
-  VV.vauthor = v => (VV.settings && VV.settings.lang === "hi" && v.hi) ? (v.hiAuthor || VV.corpus.attributionHi) : (v.author || VV.corpus.attribution);
+  VV.vauthor = v => (VV.settings && VV.settings.lang === "hi" && v.hi) ? (v.hiAuthor || corpusOf(v).attributionHi) : (v.author || corpusOf(v).attribution);
 
   VV.loadCorpus = async function (onProgress) {
     const t = k => (VV.t ? VV.t(k) : k);
-    try { localStorage.removeItem("vv.corpus.v1"); } catch (e) {}
+    try { localStorage.removeItem("vv.corpus.v1"); localStorage.removeItem("vv.corpus.v2"); } catch (e) {}
     try {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
@@ -165,8 +230,18 @@
     const days = Math.floor((Date.now() - new Date().getTimezoneOffset() * 60000) / 86400000);
     return VV.DAILY_REFS[(days + offset) % VV.DAILY_REFS.length];
   };
-  VV.getVerse = ref => VV.corpus.byRef.get(ref) || null;
-  VV.chapterVerses = ch => VV.corpus.verses.filter(v => v.ch === ch);
+  VV.getVerse = function (ref) {
+    const p = VV.parseRef(ref);
+    if (!p) return null;
+    const corpus = VV.corpora[p.textId];
+    return (corpus && corpus.byRef.get(p.ch + "." + p.v)) || null;
+  };
+  /* verses of a section; back-compat: chapterVerses(n) → gita chapter n */
+  VV.chapterVerses = function (textId, ch) {
+    if (ch === undefined) { ch = textId; textId = "gita"; }
+    const corpus = VV.corpora[textId];
+    return corpus ? corpus.verses.filter(v => v.ch === ch) : [];
+  };
 
   /* ─── lightweight lexical retrieval (grounding) ─── */
   const STOP = new Set("the a an and or of to in is are was were be been i you he she it we they my your his her its this that these those with for on at by from as not no do does did what who whom which when where why how shall will would should can could o thou thy thee me am".split(" "));
@@ -215,43 +290,63 @@
     return (query + " " + extra.join(" ")).trim();
   };
 
-  let INDEX = null;
   function tokenize(s) {
     return (s || "").toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/).filter(w => w.length > 2 && !STOP.has(w));
   }
-  function buildIndex() {
-    INDEX = new Map();
-    for (const v of VV.corpus.verses) {
-      const words = tokenize(v.trans);
+  /* build a stem → verses index for one set of verses (translation words + theme tags + book) */
+  function buildIndex(verses) {
+    const index = new Map();
+    for (const v of verses) {
+      const words = tokenize(v.trans + " " + (v.book || "") + " " + (v.themes ? v.themes.join(" ") : ""));
       const seen = new Set();
       for (const w of words) {
         const stem = w.slice(0, 6);
         if (seen.has(stem)) continue;
         seen.add(stem);
-        if (!INDEX.has(stem)) INDEX.set(stem, []);
-        INDEX.get(stem).push(v);
+        if (!index.has(stem)) index.set(stem, []);
+        index.get(stem).push(v);
       }
     }
+    return index;
   }
-  VV.retrieve = function (query, k = 6) {
-    if (!INDEX) return [];
-    // Hindi queries: map key Devanagari terms onto the English concept index
+
+  /* which corpora a scope covers: a text id, or "all" for every ready corpus */
+  function scopeCorpora(scope) {
+    if (!scope || scope === "all") return VV.TEXT_ORDER.map(id => VV.corpora[id]).filter(c => c && c.ready);
+    const c = VV.corpora[scope];
+    return c && c.ready ? [c] : [];
+  }
+
+  /* lexical retrieval, scoped to one text or across all (scope = textId | "all") */
+  VV.retrieve = function (query, k = 6, scope = "gita") {
+    const corpora = scopeCorpora(scope);
+    if (!corpora.length) return [];
     if (/[ऀ-ॿ]/.test(query)) {
       query = VV.expandHindi(query).replace(/[ऀ-ॿ।]+/g, " ").trim();
       if (!query) return [];
     }
-    let words = tokenize(query);
+    const words = tokenize(query);
     const expanded = new Set(words);
     for (const w of words) if (SYN[w]) SYN[w].forEach(s => expanded.add(s));
     const scores = new Map();
-    for (const w of expanded) {
-      const stem = w.slice(0, 6);
-      const hits = INDEX.get(stem);
-      if (!hits) continue;
-      const idf = Math.log(1 + VV.corpus.verses.length / hits.length);
-      const boost = words.includes(w) ? 1.6 : 1.0;
-      for (const v of hits) scores.set(v, (scores.get(v) || 0) + idf * boost);
+    for (const corpus of corpora) {
+      const N = corpus.verses.length || 1;
+      for (const w of expanded) {
+        const stem = w.slice(0, 6);
+        const hits = corpus.index && corpus.index.get(stem);
+        if (!hits) continue;
+        const idf = Math.log(1 + N / hits.length);
+        const boost = words.includes(w) ? 1.6 : 1.0;
+        for (const v of hits) scores.set(v, (scores.get(v) || 0) + idf * boost);
+      }
     }
     return [...scores.entries()].sort((a, b) => b[1] - a[1]).slice(0, k).map(e => e[0]);
   };
+
+  /* Build the offline bundled canon eagerly, once at load — it lives entirely in
+     js/corpora.js and must never depend on the Gita's remote fetch succeeding. This
+     runs after STOP/buildIndex are initialized; hydrate() calls buildBundled() again
+     but skips texts already built. Effect: the wider texts (Ramayana … Yoga) and the
+     offline voice are ready even if the Gita fetch is slow, flaky, or unreachable. */
+  buildBundled();
 })();

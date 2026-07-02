@@ -350,6 +350,52 @@ input, textarea { font: inherit; color: inherit; }
 .persona-chip.active { color: var(--color-terracotta); background: var(--color-terracotta-wash); border-color: rgba(204,107,71,0.25); }
 .persona-chip.active .dot { background: var(--color-terracotta); box-shadow: 0 0 8px rgba(204,107,71,0.8); }
 .persona-chip:active { transform: scale(0.95); }
+/* secondary voice row (e.g. Gita → Krishna / Arjuna) sits under the text-scope row */
+.persona-scroll.persona-sub { margin-top: 4px; padding-top: 2px; padding-bottom: 6px; }
+.persona-chip.sub { padding: 6px 12px; font-size: 12px; color: var(--color-stone); }
+.persona-chip.sub.active { color: var(--color-terracotta); }
+.persona-chip.sub.custom.active { color: var(--color-terracotta); background: var(--color-terracotta-wash); border-color: rgba(204,107,71,0.25); }
+.persona-chip.add-voice { color: var(--color-ash-gray); border-style: dashed; gap: 5px; }
+.persona-chip.add-voice svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.persona-chip.add-voice:active { transform: scale(0.95); }
+
+/* create-a-voice sheet */
+.sheet-hint { font-size: var(--text-caption); color: var(--color-ash-gray); line-height: 1.5; margin-bottom: var(--sp-8); }
+.chip-opts { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip-opt {
+  padding: 7px 12px; border-radius: var(--radius-full); font-size: 12px; font-weight: 500;
+  border: 1px solid var(--glass-border); border-top-color: var(--glass-border-highlight);
+  background: var(--glass-fill-resting); color: var(--color-ash-gray);
+  transition: transform 200ms var(--ease-spring), color 200ms ease, background 200ms ease, border-color 200ms ease;
+}
+.chip-opt.on { color: var(--color-terracotta); background: var(--color-terracotta-wash); border-color: rgba(204,107,71,0.25); }
+.chip-opt:active { transform: scale(0.95); }
+.cp-suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cp-sug {
+  padding: 5px 11px; border-radius: var(--radius-full); font-size: 12px;
+  border: 1px dashed var(--glass-border); color: var(--color-stone);
+  transition: transform 200ms var(--ease-spring), color 200ms ease, border-color 200ms ease;
+}
+.cp-sug:active { transform: scale(0.94); color: var(--color-terracotta); border-color: rgba(204,107,71,0.4); }
+.cp-mine { display: flex; flex-direction: column; gap: 8px; }
+.cp-mine-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 12px; border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border); background: var(--glass-fill-resting);
+  font-size: 13px; color: var(--color-parchment);
+}
+.cp-mine-row > span { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.cp-mine-row em { color: var(--color-ash-gray); font-style: normal; }
+.cp-mine-row .s-del { flex: none; color: var(--color-stone); opacity: 0.8; }
+.cp-mine-row .s-av {
+  width: 26px; height: 26px; border-radius: 50%; flex: none;
+  display: grid; place-items: center;
+  background: var(--color-terracotta-wash); color: var(--color-terracotta);
+  font-family: var(--font-devanagari); font-size: 13px; line-height: 1;
+  border: 1px solid rgba(204,107,71,0.3);
+}
+/* a section with no seeded verses yet reads as quietly "coming soon" */
+.chap-row.row-dim { opacity: 0.5; }
 .persona-note { font-size: 11px; color: var(--color-stone); line-height: 1.5; margin-top: 2px; }
 
 #chat-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px var(--screen-padding) 16px; scrollbar-width: none; position: relative; z-index: 2; }

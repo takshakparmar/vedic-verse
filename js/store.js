@@ -120,4 +120,30 @@
     if (VV.settings.activeSession === id) VV.settings.activeSession = null;
     VV.saveSessions(); VV.saveSettings();
   };
+
+  /* ─── user-created personas: characters drawn from the texts ─── */
+  VV.customPersonas = load("vv.personas", []); // [{id, name, character, scope, tone, avatar, at}]
+  VV.saveCustomPersonas = () => save("vv.personas", VV.customPersonas);
+  VV.addCustomPersona = function (p) {
+    const id = "cp" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    const name = (p.name || "").trim();
+    const persona = {
+      id,
+      name: name || (p.character || "").trim() || "A voice",
+      character: (p.character || "").trim(),
+      scope: p.scope || "gita",
+      tone: (p.tone || "").trim(),
+      avatar: (p.avatar || "").trim() || Array.from((name || p.character || "॥").trim())[0] || "॥",
+      at: Date.now()
+    };
+    VV.customPersonas.unshift(persona);
+    VV.saveCustomPersonas();
+    if (VV.registerCustomPersonas) VV.registerCustomPersonas(); // merge into VV.PERSONAS
+    return persona;
+  };
+  VV.deleteCustomPersona = function (id) {
+    VV.customPersonas = VV.customPersonas.filter(p => p.id !== id);
+    VV.saveCustomPersonas();
+    if (VV.PERSONAS) delete VV.PERSONAS[id];
+  };
 })();

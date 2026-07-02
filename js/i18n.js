@@ -28,7 +28,13 @@
       vedas_en: "The Four Vedas", vedas_meta: "Rig · Sama · Yajur · Atharva",
       upanishads_en: "The Upanishads", upanishads_meta: "The teaching beneath the tree",
       puranas_en: "The Puranas", puranas_meta: "The ancient stories",
-      chip_all: "All", chip_epics: "Epics", chip_vedic: "Vedic", chip_purana: "Purana",
+      yoga_en: "Yoga & Dharma", yoga_meta: "Patañjali's sutras · the path of dharma",
+      curated_chip: "Curated",
+      chip_all: "All", chip_epics: "Epics", chip_vedic: "Vedic", chip_purana: "Purana", chip_darshana: "Yoga",
+      scope_all: "All Texts",
+      grounding_note_all: "Draws on the whole canon — each answer names the text it stands on, and cites the verse. Nothing is invented.",
+      grounding_note_text: "A reverent voice of the text — grounded in its verses, cited, and honest about its limits.",
+      ph_all: "Ask across all the texts…", ph_text: "Ask {name} anything…",
       by_author: "by",
       chapter: "Chapter", verses_n: "verses",
       // reader
@@ -51,6 +57,16 @@
       session_now: "now", session_today: "today", session_yesterday: "yesterday",
       no_sessions: "No conversations yet.",
       delete: "Delete",
+      // custom personas
+      new_voice: "New voice", create_voice: "Create a voice",
+      create_voice_hint: "A character from the texts — kept true to how the scripture portrays them, grounded in its verses. An API key (Profile → Intelligence) gives the fullest voice.",
+      voice_name: "Name", voice_name_ph: "e.g. Hanuman, Vidura, Yudhishthira",
+      voice_book: "Drawn from", voice_character: "Character in the text",
+      voice_character_ph: "Who they are (optional if the name is the character)",
+      voice_tone: "Manner · optional", voice_tone_ph: "e.g. gentle and plain-spoken",
+      your_voices: "Your voices", create: "Create voice",
+      voice_created: "Voice created", voice_need_name: "Give the voice a name or a character",
+      suggest_pick: "Suggestions:",
       err_engine: "Check your key in Profile → Intelligence, or switch to the offline voice.",
       silence: "…silence. Try once more.",
       darshan_hint: "Darshan shines brightest with an API key — Profile → Intelligence",
@@ -120,7 +136,13 @@
       vedas_en: "चारों वेद", vedas_meta: "ऋग् · साम · यजुर् · अथर्व",
       upanishads_en: "उपनिषद्", upanishads_meta: "वृक्ष तले की शिक्षा",
       puranas_en: "पुराण", puranas_meta: "प्राचीन कथाएँ",
-      chip_all: "सभी", chip_epics: "महाकाव्य", chip_vedic: "वैदिक", chip_purana: "पुराण",
+      yoga_en: "योग एवं धर्म", yoga_meta: "पातञ्जल योगसूत्र · धर्म का मार्ग",
+      curated_chip: "चयनित",
+      chip_all: "सभी", chip_epics: "महाकाव्य", chip_vedic: "वैदिक", chip_purana: "पुराण", chip_darshana: "योग",
+      scope_all: "समस्त ग्रंथ",
+      grounding_note_all: "समस्त वाङ्मय पर आधारित — हर उत्तर अपने ग्रंथ का नाम लेता और श्लोक उद्धृत करता है। कुछ भी गढ़ा नहीं जाता।",
+      grounding_note_text: "ग्रंथ की श्रद्धामयी वाणी — उसके श्लोकों पर आधारित, उद्धरण सहित, सीमाओं के प्रति ईमानदार।",
+      ph_all: "सभी ग्रंथों से पूछें…", ph_text: "{name} से कुछ भी पूछें…",
       by_author: "—",
       chapter: "अध्याय", verses_n: "श्लोक",
       sit_with_verse: "इस श्लोक के संग बैठें", copy: "कॉपी", translation_by: "अनुवाद",
@@ -141,6 +163,15 @@
       session_now: "अभी", session_today: "आज", session_yesterday: "कल",
       no_sessions: "अभी कोई संवाद नहीं।",
       delete: "हटाएँ",
+      new_voice: "नई वाणी", create_voice: "वाणी बनाएँ",
+      create_voice_hint: "ग्रंथों का कोई पात्र — जैसा शास्त्र उसे दर्शाता है, वैसा ही, श्लोकों पर आधारित। API key (प्रोफ़ाइल → बुद्धि) से पूर्ण वाणी मिलती है।",
+      voice_name: "नाम", voice_name_ph: "जैसे हनुमान, विदुर, युधिष्ठिर",
+      voice_book: "किस ग्रंथ से", voice_character: "ग्रंथ का पात्र",
+      voice_character_ph: "वह कौन है (यदि नाम ही पात्र है तो वैकल्पिक)",
+      voice_tone: "स्वभाव · वैकल्पिक", voice_tone_ph: "जैसे कोमल और सरल",
+      your_voices: "आपकी वाणियाँ", create: "वाणी बनाएँ",
+      voice_created: "वाणी बन गई", voice_need_name: "वाणी को नाम या पात्र दें",
+      suggest_pick: "सुझाव:",
       err_engine: "प्रोफ़ाइल → बुद्धि में अपनी key जाँचें, या ऑफ़लाइन वाणी चुनें।",
       silence: "…मौन। एक बार फिर।",
       darshan_hint: "दर्शन के लिए API key सर्वोत्तम है — प्रोफ़ाइल → बुद्धि",
@@ -198,11 +229,15 @@
   VV.personaName = function (pid) {
     const hi = { gita: "गीता", krishna: "कृष्ण", arjuna: "अर्जुन" };
     const p = VV.PERSONAS[pid];
+    if (!p) return pid;
+    if (p.custom) return p.name;
     return VV.isHindi() ? (hi[pid] || p.name) : p.name;
   };
   VV.personaTagline = function (pid) {
     const en = { gita: "Ask the text itself", krishna: "A voice drawn from his words in the text", arjuna: "The seeker who asked first" };
     const hi = { gita: "स्वयं ग्रंथ से पूछिए", krishna: "ग्रंथ में उनके वचनों से उभरी वाणी", arjuna: "वह साधक जिसने सबसे पहले पूछा" };
-    return (VV.isHindi() ? hi : en)[pid] || "";
+    const p = VV.PERSONAS[pid];
+    if (p && p.custom) return p.tagline || "";
+    return (VV.isHindi() ? hi : en)[pid] || (p && p.tagline) || "";
   };
 })();
