@@ -1,0 +1,92 @@
+/* ─── Vedic Verse design tokens — from the style reference, verbatim ─── */
+:root {
+  /* Colors */
+  --color-ash-black: #000000;
+  --color-charcoal: #1A1817;
+  --color-ember-char: #221F1D;
+  --color-soot: #2A2725;
+  --color-graphite: #3A3532;
+  --color-stone: #57514C;
+  --color-ash-gray: #8C8681;
+  --color-parchment: #C9C2BB;
+  --color-bone-white: #F3EFE9;
+  --color-terracotta: #CC6B47;
+  --color-terracotta-deep: #A6552F;
+  --color-terracotta-ember: #E8A489;
+  --color-terracotta-wash: rgba(204, 107, 71, 0.12);
+  --color-sage: #7A9B76;
+  --color-amber: #C99A4A;
+  --color-clay: #B25B4E;
+  --color-text-on-accent: #121110;
+
+  /* Glass Surfaces */
+  --glass-fill-resting: rgba(26, 24, 23, 0.55);
+  --glass-fill-elevated: rgba(34, 31, 29, 0.65);
+  --glass-fill-chrome: rgba(10, 9, 9, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-highlight: rgba(255, 255, 255, 0.18);
+  --blur-sm: 16px;
+  --blur-md: 24px;
+  --blur-lg: 40px;
+  --blur-xl: 60px;
+
+  /* Typography — families */
+  --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-fraunces: 'Fraunces', Canela, "Tiempos Text", Georgia, serif;
+  --font-devanagari: 'Noto Serif Devanagari', 'Fraunces', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Berkeley Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Typography — scale */
+  --text-citation: 11px;   --leading-citation: 1.4;
+  --text-caption: 12px;    --leading-caption: 1.5;
+  --text-body-sm: 13px;    --leading-body-sm: 1.5;
+  --text-body: 15px;       --leading-body: 1.55;
+  --text-subheading: 18px; --leading-subheading: 1.4;
+  --text-verse-translation: 18px; --leading-verse-translation: 1.5;
+  --text-heading-sm: 22px; --leading-heading-sm: 1.3;
+  --text-heading: 28px;    --leading-heading: 1.25;
+  --text-verse-display: 28px; --leading-verse-display: 1.4;
+  --text-verse-hero: 36px; --leading-verse-hero: 1.35;
+  --text-display: 44px;    --leading-display: 1.15;
+
+  /* Spacing */
+  --sp-4: 4px; --sp-8: 8px; --sp-12: 12px; --sp-16: 16px; --sp-20: 20px;
+  --sp-24: 24px; --sp-32: 32px; --sp-40: 40px; --sp-48: 48px; --sp-64: 64px; --sp-96: 96px;
+
+  /* Layout */
+  --screen-padding: 20px;
+  --tab-bar-height: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+
+  /* Radius */
+  --radius-hero: 24px;
+  --radius-card: 16px;
+  --radius-button: 14px;
+  --radius-input: 12px;
+  --radius-badge: 6px;
+  --radius-full: 999px;
+  --radius-sheet: 28px;
+
+  /* Shadows */
+  --shadow-glass: rgba(0, 0, 0, 0.6) 0px 8px 32px 0px;
+  --shadow-glass-specular: rgba(255, 255, 255, 0.18) 0px 1px 0px 0px inset;
+  --shadow-card: rgba(0, 0, 0, 0.5) 0px 4px 16px 0px;
+  --shadow-card-inset: rgba(255, 255, 255, 0.04) 0px 1px 0px 0px inset;
+  --shadow-hairline: rgba(255, 255, 255, 0.08) 0px 0px 0px 1px inset;
+  --shadow-ember-glow: rgba(204, 107, 71, 0.32) 0px 0px 24px 0px;
+  --shadow-sheet: rgba(0, 0, 0, 0.7) 0px -12px 48px 0px;
+  --shadow-pressable: rgba(0,0,0,0.5) 0px 1.5px 0.5px 2.5px, rgba(255,255,255,0.12) 0px 1px 1px 0px inset;
+
+  /* ─── Motion — hand-tuned springs (Raycast-grade) ───
+     linear() curves sampled from real spring physics;
+     cubic-bezier fallbacks for older engines. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: linear(0, 0.0091, 0.0353 2.24%, 0.1364 4.6%, 0.5136 10.24%, 0.6624, 0.7784, 0.8672, 0.9327 18.99%, 0.9822, 1.0173, 1.0398, 1.0517 26.85%, 1.0559 28.42%, 1.0546 30.21%, 1.0246 38.53%, 1.0053 46.18%, 0.9947 53.83%, 0.9915 61.71%, 1.0002 80.61%, 1.0011 99.98%);
+  --ease-spring-soft: linear(0, 0.0621 3.06%, 0.2265 6.57%, 0.6559 14.4%, 0.7986, 0.9075, 0.9863, 1.0398 25.94%, 1.0605, 1.0733 31.19%, 1.0778 34.06%, 1.0749 37.06%, 1.0339 49.53%, 1.0075 61.62%, 0.9964 73.19%, 0.9958 84.98%, 1 100%);
+  --ease-bounce-in: linear(0, -0.0022 9.98%, -0.0154 20.03%, -0.0371 30.05%, -0.0577 36.96%, -0.0668 41.42%, -0.0684 44.62%, -0.0596 49.75%, -0.0286 55.83%, 0.02 60.51%, 0.3106 73.15%, 0.5 79.15%, 0.6676 84.11%, 0.8065 88.24%, 0.9151 91.75%, 0.9924 94.72%, 1.038 97.22%, 1.0538 99.31%, 1.05 100%);
+  --dur-fast: 180ms;
+  --dur-base: 320ms;
+  --dur-slow: 560ms;
+  --dur-hero: 760ms;
+}
